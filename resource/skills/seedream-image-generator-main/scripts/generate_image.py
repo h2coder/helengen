@@ -19,7 +19,8 @@ def generate_images(
     size: str = "2K",
     watermark: bool = True,
     max_images: int = 1,
-    output_dir: str = None
+    output_dir: str = None,
+    input_images: list = None
 ):
     """
     Generate images using the SeeDream API.
@@ -31,6 +32,7 @@ def generate_images(
         watermark: Whether to add watermark
         max_images: Maximum number of images to generate (1-4)
         output_dir: Output directory for downloaded images
+        input_images: List of input image URLs for reference (up to 14 images)
 
     Returns:
         List of downloaded image file paths
@@ -44,6 +46,11 @@ def generate_images(
     # Prepare API call parameters
     extra_body = {"watermark": watermark}
 
+    # Add input images if provided
+    if input_images:
+        extra_body["image"] = input_images if len(input_images) > 1 else input_images[0]
+        print(f"📎 Using {len(input_images)} input reference image(s)")
+
     # Add sequential image generation options if max_images > 1
     if max_images > 1:
         extra_body["sequential_image_generation"] = "auto"
@@ -56,7 +63,7 @@ def generate_images(
     # Call the image generation API
     try:
         images_response = client.images.generate(
-            model="doubao-seedream-4-0-250828",
+            model="doubao-seedream-4-5-251128",
             prompt=prompt,
             size=size,
             response_format="url",
@@ -168,6 +175,13 @@ def main():
         default=None,
         help="Output directory for images (defaults to project_root/pic)"
     )
+    parser.add_argument(
+        "--input-images",
+        type=str,
+        nargs="+",
+        default=None,
+        help="Input image URLs for reference (up to 14 images, space-separated)"
+    )
 
     args = parser.parse_args()
 
@@ -182,6 +196,11 @@ def main():
         print("❌ Error: max_images must be between 1 and 4")
         sys.exit(1)
 
+    # Validate input_images
+    if args.input_images and len(args.input_images) > 14:
+        print("❌ Error: Maximum 14 input images allowed")
+        sys.exit(1)
+
     # Generate and download images
     downloaded_files = generate_images(
         prompt=args.prompt,
@@ -189,7 +208,8 @@ def main():
         size=args.size,
         watermark=not args.no_watermark,
         max_images=args.max_images,
-        output_dir=args.output_dir
+        output_dir=args.output_dir,
+        input_images=args.input_images
     )
 
     print(f"\n✨ Successfully generated and downloaded {len(downloaded_files)} image(s)!")

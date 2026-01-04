@@ -1,13 +1,17 @@
 ---
 name: seedream-image-generator
-description: Generate images using the Doubao SeeDream API based on text prompts. Use this skill when users request AI-generated images, artwork, illustrations, or visual content creation. The skill handles API calls, downloads generated images to the project's /pic folder, and supports batch generation of up to 4 sequential images.
+description: Generate images using the Doubao SeeDream API based on text prompts and optional input reference images. Use this skill when users request AI-generated images, artwork, illustrations, or visual content creation. The skill handles API calls, downloads generated images to the project's /pic folder, and supports batch generation of up to 4 sequential images with or without input reference images.
 ---
 
 # SeeDream Image Generator
 
 ## Overview
 
-This skill enables image generation using the Doubao SeeDream 4.0 API (model: doubao-seedream-4-0-250828). It converts text prompts into high-quality images and automatically downloads them to the project's `/pic` folder. The skill supports single and batch image generation (up to 4 sequential images), customizable image sizes, and watermark control.
+This skill enables image generation using the Doubao SeeDream 4.5 API (model: doubao-seedream-4-5-251128). It converts text prompts (with optional input reference images) into high-quality images and automatically downloads them to the project's `/pic` folder. The skill supports:
+- Text-to-image generation
+- Image-to-image generation (single or multiple input images)
+- Single and batch image generation (up to 4 sequential images)
+- Customizable image sizes and watermark control
 
 ## When to Use This Skill
 
@@ -16,6 +20,8 @@ Use this skill when users request:
 - "Create artwork showing [scene/concept]"
 - "Make an illustration of [subject]"
 - "Generate 4 seasonal variations of [scene]"
+- "Transform this image [URL] into [style]"
+- "Combine these images [URL1, URL2] to create [description]"
 - Any request involving AI image generation, visual content creation, or artwork generation
 
 ## Quick Start
@@ -68,6 +74,7 @@ python scripts/generate_image.py "futuristic city at sunset with flying cars" \
   - `"2048x2048"`
   - `"3104x1312"` (widescreen)
   - Custom dimensions in format `"{width}x{height}"`
+- `--input-images`: Input image URLs for reference (up to 14 images, space-separated)
 - `--no-watermark`: Disable watermark (watermark enabled by default)
 - `--output-dir`: Custom output directory (defaults to `project_root/pic`)
 
@@ -91,6 +98,58 @@ python scripts/generate_image.py \
 - `--max-images`: Number of images to generate (1-4, default: 1)
 
 **Note**: When `--max-images` is greater than 1, the API automatically uses sequential image generation to create related/coherent images.
+
+### Image-to-Image Generation (Single Input Image)
+
+Generate an image based on a text prompt and a single input reference image.
+
+**Example user request:**
+> "Transform this image by changing the dress material from silver metal to transparent water"
+
+**Script usage:**
+```bash
+python scripts/generate_image.py \
+    "保持模特姿势和液态服装的流动形状不变。将服装材质从银色金属改为完全透明的清水" \
+    --api-key "YOUR_ARK_API_KEY" \
+    --input-images "https://example.com/input_image.png" \
+    --size "2K"
+```
+
+**Additional parameter:**
+- `--input-images`: Space-separated list of input image URLs (up to 14 images)
+
+### Image-to-Image Generation (Multiple Input Images)
+
+Generate an image by combining multiple input reference images with a text prompt.
+
+**Example user request:**
+> "Combine these images to change the outfit in image 1 to the outfit from image 2"
+
+**Script usage:**
+```bash
+python scripts/generate_image.py \
+    "将图1的服装换为图2的服装" \
+    --api-key "YOUR_ARK_API_KEY" \
+    --input-images "https://example.com/person.png" "https://example.com/outfit.png" \
+    --size "2K"
+```
+
+### Batch Image Generation with Input Reference Images
+
+Generate multiple related images (2-4 images) using text prompt and input reference images.
+
+**Example user request:**
+> "Using this logo, create 4 brand visual designs for packaging, hats, cards, and lanyards"
+
+**Script usage:**
+```bash
+python scripts/generate_image.py \
+    "参考这个LOGO，做一套户外运动品牌视觉设计，品牌名称为GREEN，包括包装袋、帽子、卡片、挂绳等。绿色视觉主色调，趣味、简约现代风格" \
+    --api-key "YOUR_ARK_API_KEY" \
+    --input-images "https://example.com/logo.png" \
+    --max-images 4 \
+    --size "2K"
+```
 
 ### Advanced Prompt Engineering
 
@@ -150,14 +209,22 @@ Do we have ARK API key?
     ├─ No → Request API key from user → Store for session
     └─ Yes → Continue
     ↓
-Single image or multiple images?
+Output single image or multiple images?
     ├─ Single (default)
-    │   └─ Run: generate_image.py "prompt" --api-key KEY --size SIZE
+    │   ↓
+    │ Input reference images provided?
+    │   ├─ Yes → Pass URLs via --input-images
+    │   └─ No → Text-only generation
+    │   └─ Run: generate_image.py "prompt" --api-key KEY [--input-images URL1 URL2...] --size SIZE
     └─ Multiple (2-4 images)
-        └─ Run: generate_image.py "prompt" --api-key KEY --max-images N
+        ↓
+        Input reference images provided?
+        ├─ Yes → Pass URLs via --input-images
+        └─ No → Text-only generation
+        └─ Run: generate_image.py "prompt" --api-key KEY --max-images N [--input-images URL1 URL2...]
     ↓
 Script executes:
-    1. Calls SeeDream API
+    1. Calls SeeDream API (with optional input images)
     2. Receives image URL(s)
     3. Downloads to /pic folder
     4. Reports file paths and statistics
@@ -186,6 +253,12 @@ Inform user of results
 - Verify the image URL is accessible
 - Ensure sufficient disk space in output directory
 
+**"Error with input images"**
+- Verify input image URLs are accessible and valid
+- Check that input images meet format requirements (JPEG, PNG, WebP, BMP, TIFF, GIF)
+- Ensure input images are under 10MB each
+- Verify maximum 14 input images provided
+
 **Module not found errors**
 - Install required dependencies: `pip install openai requests`
 
@@ -193,11 +266,14 @@ Inform user of results
 
 1. **Always request API key first** - Don't assume the user has configured it
 2. **Clarify image requirements** - Ask about size, quantity, and style preferences
-3. **Optimize prompts** - Help users craft detailed, descriptive prompts for better results
-4. **Batch generation for variations** - Suggest `--max-images` when users want variations or sequences
-5. **Inform about output location** - Always tell users where images are saved
-6. **Preview results** - After generation, offer to display or describe the generated images
-7. **Respect content policies** - Ensure prompts comply with API content guidelines
+3. **Check for input reference images** - Ask if users have reference images they want to use
+4. **Optimize prompts** - Help users craft detailed, descriptive prompts for better results
+5. **Batch generation for variations** - Suggest `--max-images` when users want variations or sequences
+6. **Inform about output location** - Always tell users where images are saved
+7. **Preview results** - After generation, offer to display or describe the generated images
+8. **Respect content policies** - Ensure prompts comply with API content guidelines
+9. **Validate input images** - Ensure input image URLs are accessible before generation
+10. **Guide image-to-image usage** - Explain how reference images influence the output
 
 ## Example Interactions
 
@@ -228,4 +304,34 @@ User: "Generate a 2048x2048 image of a cyberpunk street without watermark"
 Claude: [Executes with --size "2048x2048" --no-watermark]
 Claude: "✅ Image generated (2048x2048, no watermark)
 Saved to: /project/pic/seedream_20250112_144015.png"
+```
+
+**Example 4: Image-to-image transformation**
+```
+User: "I have this photo https://example.com/portrait.png. Can you change the clothing to a futuristic sci-fi armor?"
+Claude: "I'll transform the portrait by changing the clothing to sci-fi armor. Using your API key..."
+[Executes with --input-images "https://example.com/portrait.png"]
+Claude: "✅ Image transformed successfully!
+Saved to: /project/pic/seedream_20250112_144530.png"
+```
+
+**Example 5: Multi-image fusion**
+```
+User: "Combine these two images: https://example.com/person.png and https://example.com/dress.png. Put the dress on the person"
+Claude: "I'll fuse these images to apply the dress to the person. Using your API key..."
+[Executes with --input-images "https://example.com/person.png" "https://example.com/dress.png"]
+Claude: "✅ Image fusion complete!
+Saved to: /project/pic/seedream_20250112_145015.png"
+```
+
+**Example 6: Batch generation with reference image**
+```
+User: "Using this logo https://example.com/logo.png, create 4 variations for different seasons"
+Claude: "I'll generate 4 seasonal variations based on your logo. Using your API key..."
+[Executes with --input-images "https://example.com/logo.png" --max-images 4]
+Claude: "✅ Generated 4 seasonal variations:
+- /project/pic/seedream_20250112_145530_1.png (Spring)
+- /project/pic/seedream_20250112_145530_2.png (Summer)
+- /project/pic/seedream_20250112_145530_3.png (Autumn)
+- /project/pic/seedream_20250112_145530_4.png (Winter)"
 ```
