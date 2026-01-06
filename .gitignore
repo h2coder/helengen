@@ -209,3 +209,5 @@ __marimo__/
 # macOS
 .DS_Store
 pic/
+*.zip
+.api_key
